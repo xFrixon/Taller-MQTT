@@ -8,6 +8,9 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 import uuid
 import json
+import mysql.connector
+from mysql.connector import Error
+
 
 # Configuración del broker MQTT
 broker_address = "broker.hivemq.com"
@@ -22,6 +25,12 @@ smtp_port = 587
 smtp_username = "rendimientopc22@gmail.com"
 smtp_password = "vieh rqvm ryty bfdn"
 recipient_email = "frixonluna2003@gmail.com"
+
+# Configuración de la conexión MySQL
+mysql_host = "localhost"
+mysql_user = "root"
+mysql_password = "root22"
+mysql_database = "rendimiento_pc"
 
 # Función que se ejecuta cuando se conecta al broker
 def on_connect(client, userdata, flags, rc):
@@ -71,7 +80,7 @@ def enviar_alerta():
 # Función para verificar y enviar alerta si el rendimiento del CPU es mayor al 40%
 def verificar_y_enviar_alerta(mensaje):
     # Busca la línea que contiene el rendimiento del CPU en el mensaje
-    linea_cpu = next((linea for linea in mensaje.split('\n') if 'Rendimiento del CPU' in linea), None)
+    linea_cpu = next((linea for linea in mensaje.split('\n') if 'rendimiento_cpu' in linea), None)
 
     if linea_cpu:
         try:
@@ -165,6 +174,45 @@ try:
 
         # Verifica y envía una alerta si es necesario
         verificar_y_enviar_alerta(mensaje_json)
+        
+        try:
+            # Conexión a MySQL
+            connection = mysql.connector.connect(
+                host=mysql_host,
+                user=mysql_user,
+                password=mysql_password,
+                database=mysql_database
+            )
+
+            if connection.is_connected():
+                db_Info = connection.get_server_info()
+                print("Conectado a MySQL Server version ", db_Info)
+
+                cursor = connection.cursor()
+
+                try:
+                    # Insertar datos en la tabla
+                    cursor.execute("""
+                        INSERT INTO datos_pc
+                        (fecha_hora, mac_address, rendimiento_cpu, rendimiento_memoria, rendimiento_red, sistema_operativo)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (fecha_hora_actual, mac_address, rendimiento_cpu, rendimiento_memoria, rendimiento_red, sistema_operativo))
+
+                    # Hacer commit para guardar los cambios
+                    connection.commit()
+
+                    print("Datos insertados en la base de datos.")
+                except Error as e:
+                    print("Error al insertar datos en la base de datos:", e)
+            else:
+                print("No se pudo conectar a MySQL.")
+        except Error as e:
+            print("Error al conectar a MySQL:", e)
+        finally:
+            if connection.is_connected():
+                cursor.close()
+                connection.close()
+                print("Conexión a MySQL cerrada.")
 
         # Espera a que el usuario presione ENTER para enviar el siguiente mensaje
         input("\nPresiona ENTER para enviar el siguiente mensaje...\n")
@@ -174,4 +222,4 @@ except KeyboardInterrupt:
     client.disconnect()
     client.loop_stop()
 
-    #Versión 3
+    #Versión 4
