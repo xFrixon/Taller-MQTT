@@ -5,6 +5,9 @@ import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from datetime import datetime
+import uuid
+import json
 
 # Configuración del broker MQTT
 broker_address = "broker.hivemq.com"
@@ -17,7 +20,7 @@ topic_diferencia_metadatos = "topico_a_enviar"
 smtp_server = "smtp.gmail.com"
 smtp_port = 587
 smtp_username = "rendimientopc22@gmail.com"
-smtp_password = "rendimientopc123"
+smtp_password = "vieh rqvm ryty bfdn"
 recipient_email = "frixonluna2003@gmail.com"
 
 # Función que se ejecuta cuando se conecta al broker
@@ -130,25 +133,38 @@ try:
         rendimiento_red = obtener_rendimiento_red()
         sistema_operativo = obtener_sistema_operativo()
 
-        # Formatea los datos como un mensaje
-        mensaje = (
-            f"Rendimiento del CPU (%): {rendimiento_cpu}\n"
-            f"Rendimiento de la Memoria (%): {rendimiento_memoria}\n"
-            f"Rendimiento de la Red (GB): {rendimiento_red}\n"
-            f"Sistema Operativo: {sistema_operativo}"
-        )
+        # Obtén la fecha y hora actual
+        fecha_hora_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # Envia el mensaje al broker MQTT
-        client.publish(topic, mensaje)
+        # Obtén la dirección MAC
+        mac_address = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) for elements in range(5, -1, -1)])
+
+        # Construye un diccionario con los datos
+        datos = {
+            "fecha_hora": fecha_hora_actual,
+            "mac_address": mac_address,
+            "rendimiento_cpu": rendimiento_cpu,
+            "rendimiento_memoria": rendimiento_memoria,
+            "rendimiento_red": rendimiento_red,
+            "sistema_operativo": sistema_operativo
+        }
+
+        # Convierte el diccionario a una cadena JSON
+        mensaje_json = json.dumps(datos, indent=2)  # Usa indent para formatear la salida JSON
+
+        # Envia el mensaje JSON al broker MQTT
+        client.publish(topic, mensaje_json)
 
         # Limpia el búfer de la consola
         os.system('cls' if os.name == 'nt' else 'clear')
 
-        # Imprime el mensaje para el usuario
-        print("Mensaje enviado:\n", mensaje)
+        # Imprime cada línea del mensaje
+        print("Mensaje JSON enviado:")
+        for linea in mensaje_json.split('\n'):
+            print(linea)
 
         # Verifica y envía una alerta si es necesario
-        verificar_y_enviar_alerta(mensaje)
+        verificar_y_enviar_alerta(mensaje_json)
 
         # Espera a que el usuario presione ENTER para enviar el siguiente mensaje
         input("\nPresiona ENTER para enviar el siguiente mensaje...\n")
@@ -157,3 +173,5 @@ except KeyboardInterrupt:
     # Desconectar al recibir una interrupción del teclado (Ctrl+C)
     client.disconnect()
     client.loop_stop()
+
+    #Versión 3
